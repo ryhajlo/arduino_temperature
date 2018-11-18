@@ -27,6 +27,9 @@ void setup(void)
   Wire.begin(8);                // join i2c bus with address #8
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent);
+
+  digitalWrite(10, HIGH);
+  pinMode(10, OUTPUT);
   
   // start serial port
   Serial.begin(9600);
@@ -99,6 +102,7 @@ void printTemperature(DeviceAddress deviceAddress)
   Serial.print(" Temp F: ");
   Serial.println(DallasTemperature::toFahrenheit(tempC)); // Converts tempC to Fahrenheit
 }
+bool reset_now = false;
 /*
  * Main function. It will request the tempC from the sensors and display on Serial.
  */
@@ -117,6 +121,10 @@ void loop(void)
   // Convert last temperature into an integer
   raw_temperature = last_temperature*10;
   delay(1000);
+  if (reset_now)
+  {
+    digitalWrite(10, LOW);
+  }
 }
 
 // function to print a device address
@@ -146,6 +154,7 @@ void requestEvent() {
       case 0x01:
         // Read One Wire
         Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
+        reset_now = true;
         break;
       case 0x02:
         // Read Soil Moisture Sensor
@@ -156,6 +165,8 @@ void requestEvent() {
     }
   }
   response_valid = false;
+  
+  
 }
 
 void receiveEvent(int num_bytes)
