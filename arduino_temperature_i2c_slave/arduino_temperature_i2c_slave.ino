@@ -6,6 +6,11 @@
 // Data wire is plugged into port 2 on the Arduino
 #define ONE_WIRE_BUS 2
 
+#define RESET_PIN 11
+
+int soilPower = 13;
+int soilPin = A0;
+
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -17,23 +22,37 @@ DeviceAddress insideThermometer;
 
 float last_temperature = 0;
 int16_t raw_temperature = 0;
+uint16_t soil_moisture = 0;
+int loop_counter = 0;
 
 /*
  * Setup function. Here we do the basics
  */
 void setup(void)
 {
-  // Setup I2C Slave
-  Wire.begin(8);                // join i2c bus with address #8
-  Wire.onRequest(requestEvent);
-  Wire.onReceive(receiveEvent);
-
-  digitalWrite(10, HIGH);
-  pinMode(10, OUTPUT);
-  
   // start serial port
   Serial.begin(9600);
   Serial.println("Dallas Temperature IC Control Library Demo");
+
+  int default_address = 0x08;
+  pinMode(3, INPUT);
+  if(digitalRead(3) == 1)
+  {
+    default_address = 0x10;
+  }
+  
+  // Setup I2C Slave
+  Serial.print("I2C Address: 0x");
+  Serial.println(default_address, HEX);
+  Wire.begin(default_address);                // join i2c bus with address #8
+  Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent);
+
+  pinMode(soilPower, OUTPUT);//Set D7 as an OUTPUT
+  digitalWrite(soilPower, LOW);//Set to LOW so no power is flowing through the sensor
+
+  digitalWrite(RESET_PIN, HIGH);
+  pinMode(RESET_PIN, OUTPUT);
 
   // locate devices on the bus
   Serial.print("Locating devices...");
@@ -120,10 +139,24 @@ void loop(void)
   Serial.println(last_temperature);
   // Convert last temperature into an integer
   raw_temperature = last_temperature*10;
+  if(++loop_counter%15 == 0)
+  {
+    soil_moisture = readSoil();
+    Serial.print("Soil moisture: ");
+    Serial.println(soil_moisture);
+    loop_counter = 0;
+  }
+  else
+  {
+    Serial.print("Not reading soil moisture, loop counter == ");
+    Serial.println(loop_counter);
+  }
+  
   delay(1000);
   if (reset_now)
   {
-    digitalWrite(10, LOW);
+    delay(2000);
+    digitalWrite(RESET_PIN, LOW);
   }
 }
 
@@ -135,6 +168,16 @@ void printAddress(DeviceAddress deviceAddress)
     if (deviceAddress[i] < 16) Serial.print("0");
     Serial.print(deviceAddress[i], HEX);
   }
+}
+
+//This is a function used to get the soil moisture content
+uint16_t readSoil()
+{
+    digitalWrite(soilPower, HIGH);//turn D7 "On"
+    delay(10);//wait 10 milliseconds 
+    uint16_t val = analogRead(soilPin);//Read the SIG value form sensor 
+    digitalWrite(soilPower, LOW);//turn D7 "Off"
+    return val;//send current moisture value
 }
 
 int cmd_id = 0;
@@ -158,6 +201,8 @@ void requestEvent() {
         break;
       case 0x02:
         // Read Soil Moisture Sensor
+        Wire.write((byte *)&soil_moisture, sizeof(soil_moisture));
+        reset_now = true;
         break;
       default:
         // Error
@@ -165,8 +210,6 @@ void requestEvent() {
     }
   }
   response_valid = false;
-  
-  
 }
 
 void receiveEvent(int num_bytes)
