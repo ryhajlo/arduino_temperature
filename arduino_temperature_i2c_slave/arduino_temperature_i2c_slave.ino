@@ -103,17 +103,15 @@ void setup(void)
   Serial.print("Device 0 Resolution: ");
   Serial.print(sensors.getResolution(insideThermometer), DEC);
   Serial.println();
+
+  soil_moisture = readSoil();
+  Serial.print("Soil moisture: ");
+  Serial.println(soil_moisture);
 }
 
 // function to print the temperature for a device
 void printTemperature(DeviceAddress deviceAddress)
 {
-  // method 1 - slower
-  //Serial.print("Temp C: ");
-  //Serial.print(sensors.getTempC(deviceAddress));
-  //Serial.print(" Temp F: ");
-  //Serial.print(sensors.getTempF(deviceAddress)); // Makes a second call to getTempC and then converts to Fahrenheit
-
   // method 2 - faster
   float tempC = sensors.getTempC(deviceAddress);
   Serial.print("Temp C: ");
@@ -158,7 +156,6 @@ void loop(void)
     delay(2000);
     digitalWrite(RESET_PIN, LOW);
   }
-  Serial.println("a");
 }
 
 // function to print a device address
@@ -181,57 +178,34 @@ uint16_t readSoil()
   return val;//send current moisture value
 }
 
-int cmd_id = 0;
-bool response_valid = false;
-
 // function that executes whenever data is requested by master
 // this function is registered as an event, see setup()
 void requestEvent() {
-  cmd_id = Wire.read();
+  int cmd_id = Wire.read();
   Serial.println("Request Event: " + String(cmd_id));
-  //Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
-
-  //if (response_valid)
+  switch (cmd_id)
   {
-    switch (cmd_id)
-    {
-      case 0x55:
-        // Test case
-        Wire.write(cmd_id);
-        break;
-      case 0x01:
-        // Read One Wire
-        Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
-        //reset_now = true;
-        break;
-      case 0x02:
-        // Read Soil Moisture Sensor
-        Wire.write((byte *)&soil_moisture, sizeof(soil_moisture));
-        //reset_now = true;
-        break;
-      default:
-        // Error
-        break;
-    }
+    case 0x55:
+      // Test case
+      Wire.write(cmd_id);
+      break;
+    case 0x01:
+      // Read One Wire
+      Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
+      //reset_now = true;
+      break;
+    case 0x02:
+      // Read Soil Moisture Sensor
+      Wire.write((byte *)&soil_moisture, sizeof(soil_moisture));
+      //reset_now = true;
+      break;
+    default:
+      // Error
+      break;
   }
-  //response_valid = false;
-
 }
 
 void receiveEvent(int num_bytes)
 {
   Serial.println("Receive Event - " + String(num_bytes));
-  /*
-    // We really only expect 1
-    if (Wire.available() >= 1)
-    {
-    cmd_id = Wire.read();
-    response_valid = true;
-    Serial.println("Receieved Command id: " + cmd_id);
-    }
-    else
-    {
-    Serial.println("No Command ID Received");
-    }
-  */
 }
