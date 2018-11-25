@@ -14,7 +14,7 @@ int soilPin = A0;
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 
-// Pass our oneWire reference to Dallas Temperature. 
+// Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
 // arrays to hold device address
@@ -26,8 +26,8 @@ uint16_t soil_moisture = 0;
 int loop_counter = 0;
 
 /*
- * Setup function. Here we do the basics
- */
+   Setup function. Here we do the basics
+*/
 void setup(void)
 {
   // start serial port
@@ -36,11 +36,11 @@ void setup(void)
 
   int default_address = 0x08;
   pinMode(3, INPUT);
-  if(digitalRead(3) == 1)
+  if (digitalRead(3) == 1)
   {
     default_address = 0x10;
   }
-  
+
   // Setup I2C Slave
   Serial.print("I2C Address: 0x");
   Serial.println(default_address, HEX);
@@ -62,10 +62,10 @@ void setup(void)
   Serial.println(" devices.");
 
   // report parasite power requirements
-  Serial.print("Parasite power is: "); 
+  Serial.print("Parasite power is: ");
   if (sensors.isParasitePowerMode()) Serial.println("ON");
   else Serial.println("OFF");
-  
+
   // Assign address manually. The addresses below will beed to be changed
   // to valid device addresses on your bus. Device address can be retrieved
   // by using either oneWire.search(deviceAddress) or individually via
@@ -75,16 +75,16 @@ void setup(void)
 
   // Method 1:
   // Search for devices on the bus and assign based on an index. Ideally,
-  // you would do this to initially discover addresses on the bus and then 
-  // use those addresses and manually assign them (see above) once you know 
+  // you would do this to initially discover addresses on the bus and then
+  // use those addresses and manually assign them (see above) once you know
   // the devices on your bus (and assuming they don't change).
-  if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0"); 
-  
+  if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
+
   // method 2: search()
   // search() looks for the next device. Returns 1 if a new address has been
-  // returned. A zero might mean that the bus is shorted, there are no devices, 
-  // or you have already retrieved all of them. It might be a good idea to 
-  // check the CRC to make sure you didn't get garbage. The order is 
+  // returned. A zero might mean that the bus is shorted, there are no devices,
+  // or you have already retrieved all of them. It might be a good idea to
+  // check the CRC to make sure you didn't get garbage. The order is
   // deterministic. You will always get the same devices in the same order
   //
   // Must be called before search()
@@ -99,9 +99,9 @@ void setup(void)
 
   // set the resolution to 9 bit (Each Dallas/Maxim device is capable of several different resolutions)
   sensors.setResolution(insideThermometer, 9);
- 
+
   Serial.print("Device 0 Resolution: ");
-  Serial.print(sensors.getResolution(insideThermometer), DEC); 
+  Serial.print(sensors.getResolution(insideThermometer), DEC);
   Serial.println();
 }
 
@@ -123,23 +123,23 @@ void printTemperature(DeviceAddress deviceAddress)
 }
 bool reset_now = false;
 /*
- * Main function. It will request the tempC from the sensors and display on Serial.
- */
+   Main function. It will request the tempC from the sensors and display on Serial.
+*/
 void loop(void)
-{ 
-  // call sensors.requestTemperatures() to issue a global temperature 
+{
+  // call sensors.requestTemperatures() to issue a global temperature
   // request to all devices on the bus
   Serial.print("Requesting temperatures...");
   sensors.requestTemperatures(); // Send the command to get temperatures
   Serial.println("DONE");
-  
+
   // It responds almost immediately. Let's print out the data
   last_temperature = sensors.getTempC(insideThermometer);
   Serial.print("Temp C: ");
   Serial.println(last_temperature);
   // Convert last temperature into an integer
-  raw_temperature = last_temperature*10;
-  if(++loop_counter%15 == 0)
+  raw_temperature = last_temperature * 10;
+  if (++loop_counter % 15 == 0)
   {
     soil_moisture = readSoil();
     Serial.print("Soil moisture: ");
@@ -151,13 +151,14 @@ void loop(void)
     Serial.print("Not reading soil moisture, loop counter == ");
     Serial.println(loop_counter);
   }
-  
+
   delay(1000);
   if (reset_now)
   {
     delay(2000);
     digitalWrite(RESET_PIN, LOW);
   }
+  Serial.println("a");
 }
 
 // function to print a device address
@@ -173,11 +174,11 @@ void printAddress(DeviceAddress deviceAddress)
 //This is a function used to get the soil moisture content
 uint16_t readSoil()
 {
-    digitalWrite(soilPower, HIGH);//turn D7 "On"
-    delay(10);//wait 10 milliseconds 
-    uint16_t val = analogRead(soilPin);//Read the SIG value form sensor 
-    digitalWrite(soilPower, LOW);//turn D7 "Off"
-    return val;//send current moisture value
+  digitalWrite(soilPower, HIGH);//turn D7 "On"
+  delay(10);//wait 10 milliseconds
+  uint16_t val = analogRead(soilPin);//Read the SIG value form sensor
+  digitalWrite(soilPower, LOW);//turn D7 "Off"
+  return val;//send current moisture value
 }
 
 int cmd_id = 0;
@@ -186,9 +187,13 @@ bool response_valid = false;
 // function that executes whenever data is requested by master
 // this function is registered as an event, see setup()
 void requestEvent() {
-  if(response_valid)
+  cmd_id = Wire.read();
+  Serial.println("Request Event: " + String(cmd_id));
+  //Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
+
+  //if (response_valid)
   {
-    switch(cmd_id)
+    switch (cmd_id)
     {
       case 0x55:
         // Test case
@@ -197,32 +202,36 @@ void requestEvent() {
       case 0x01:
         // Read One Wire
         Wire.write((byte *)&raw_temperature, sizeof(raw_temperature));
-        reset_now = true;
+        //reset_now = true;
         break;
       case 0x02:
         // Read Soil Moisture Sensor
         Wire.write((byte *)&soil_moisture, sizeof(soil_moisture));
-        reset_now = true;
+        //reset_now = true;
         break;
       default:
         // Error
         break;
     }
   }
-  response_valid = false;
+  //response_valid = false;
+
 }
 
 void receiveEvent(int num_bytes)
 {
-  // We really only expect 1
-  if (Wire.available() >= 1)
-  {
+  Serial.println("Receive Event - " + String(num_bytes));
+  /*
+    // We really only expect 1
+    if (Wire.available() >= 1)
+    {
     cmd_id = Wire.read();
     response_valid = true;
     Serial.println("Receieved Command id: " + cmd_id);
-  }
-  else
-  {
+    }
+    else
+    {
     Serial.println("No Command ID Received");
-  }
+    }
+  */
 }
