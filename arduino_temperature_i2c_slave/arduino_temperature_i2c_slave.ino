@@ -34,17 +34,50 @@ void setup(void)
   Serial.begin(9600);
   Serial.println("Dallas Temperature IC Control Library Demo");
 
-  int default_address = 0x08;
-  pinMode(3, INPUT);
-  if (digitalRead(3) == 1)
-  {
-    default_address = 0x10;
-  }
+  /** Use GPIOs 4 through 9 to represent the different I2C addresses.
+   * This gives us 6 bits of addresses, 64 different options.
+   * GPIOs 4 through 9 are configured with internal pullups, 
+   * so to select an address in hardware, simply connect those pins to ground.
+   * Read GPIOs 4 through 9, not them, right shift by 3, then add to the base address.
+   * 
+   * Example: I2C Address 0x2B
+   * 0x2B - 0x08 = 0x23
+   * 0x23 = 0b00100011
+   * GPIO Value:987654
+   * Not each bit and connect 9, 5 and 4 to ground.
+   */
+  uint8_t base_address = 0x08;
+  pinMode(4, INPUT_PULLUP);
+  pinMode(5, INPUT_PULLUP);
+  pinMode(6, INPUT_PULLUP);
+  pinMode(7, INPUT_PULLUP);
+  pinMode(8, INPUT_PULLUP);
+  pinMode(9, INPUT_PULLUP);
+
+  uint8_t address = 0; 
+  Serial.println(address, HEX);
+  address |= digitalRead(4) << 0;
+  Serial.println(address, HEX);
+  address |= digitalRead(5) << 1;
+  Serial.println(address, HEX);
+  address |= digitalRead(6) << 2;
+  Serial.println(address, HEX);
+  address |= digitalRead(7) << 3;
+  Serial.println(address, HEX);
+  address |= digitalRead(8) << 4;
+  Serial.println(address, HEX);
+  address |= digitalRead(9) << 5;
+  Serial.println(address, HEX);
+
+  address = ~address & 0x3F;
+  Serial.print("Not: 0x");
+  Serial.println(address, HEX);
+  address += base_address;
 
   // Setup I2C Slave
   Serial.print("I2C Address: 0x");
-  Serial.println(default_address, HEX);
-  Wire.begin(default_address);                // join i2c bus with address #8
+  Serial.println(address, HEX);
+  Wire.begin(address); // Set my slave I2C address from GPIO Inputs
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent);
 
