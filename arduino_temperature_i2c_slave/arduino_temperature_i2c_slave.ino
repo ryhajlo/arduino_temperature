@@ -21,7 +21,7 @@ DallasTemperature sensors(&oneWire);
 DeviceAddress insideThermometer;
 
 float last_temperature = 0;
-int16_t raw_temperature = 0;
+int32_t raw_temperature = 0;
 uint16_t soil_moisture = 0;
 int loop_counter = 0;
 
@@ -55,23 +55,14 @@ void setup(void)
   pinMode(9, INPUT_PULLUP);
 
   uint8_t address = 0; 
-  Serial.println(address, HEX);
   address |= digitalRead(4) << 0;
-  Serial.println(address, HEX);
   address |= digitalRead(5) << 1;
-  Serial.println(address, HEX);
   address |= digitalRead(6) << 2;
-  Serial.println(address, HEX);
   address |= digitalRead(7) << 3;
-  Serial.println(address, HEX);
   address |= digitalRead(8) << 4;
-  Serial.println(address, HEX);
   address |= digitalRead(9) << 5;
-  Serial.println(address, HEX);
 
   address = ~address & 0x3F;
-  Serial.print("Not: 0x");
-  Serial.println(address, HEX);
   address += base_address;
 
   // Setup I2C Slave
@@ -131,7 +122,7 @@ void setup(void)
   Serial.println();
 
   // set the resolution to 9 bit (Each Dallas/Maxim device is capable of several different resolutions)
-  sensors.setResolution(insideThermometer, 9);
+  sensors.setResolution(insideThermometer, 12);
 
   Serial.print("Device 0 Resolution: ");
   Serial.print(sensors.getResolution(insideThermometer), DEC);
@@ -160,27 +151,20 @@ void loop(void)
 {
   // call sensors.requestTemperatures() to issue a global temperature
   // request to all devices on the bus
-  Serial.print("Requesting temperatures...");
   sensors.requestTemperatures(); // Send the command to get temperatures
-  Serial.println("DONE");
 
   // It responds almost immediately. Let's print out the data
   last_temperature = sensors.getTempC(insideThermometer);
   Serial.print("Temp C: ");
   Serial.println(last_temperature);
-  // Convert last temperature into an integer
-  raw_temperature = last_temperature * 10;
-  if (++loop_counter % 15 == 0)
+  // Convert last temperature into an integer. Resolution is 1/16th of a degree C
+  raw_temperature = last_temperature * 10000;
+  if (++loop_counter % 50 == 0)
   {
     soil_moisture = readSoil();
     Serial.print("Soil moisture: ");
     Serial.println(soil_moisture);
     loop_counter = 0;
-  }
-  else
-  {
-    Serial.print("Not reading soil moisture, loop counter == ");
-    Serial.println(loop_counter);
   }
 
   delay(1000);
@@ -204,9 +188,17 @@ void printAddress(DeviceAddress deviceAddress)
 //This is a function used to get the soil moisture content
 uint16_t readSoil()
 {
+  static constexpr uint8_t SAMPLES_TO_AVERAGE = 10;
+  uint32_t running_average = 0;
   digitalWrite(soilPower, HIGH);//turn D7 "On"
-  delay(10);//wait 10 milliseconds
-  uint16_t val = analogRead(soilPin);//Read the SIG value form sensor
+  
+  // Read 10 times
+  for(uint8_t i = 0; i < SAMPLES_TO_AVERAGE; i++)
+  {
+    delay(10);//wait 10 milliseconds
+    running_average += analogRead(soilPin);//Read the SIG value form sensor
+  }
+  uint16_t val = running_average/10;
   digitalWrite(soilPower, LOW);//turn D7 "Off"
   return val;//send current moisture value
 }
